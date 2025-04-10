@@ -1,0 +1,21 @@
+{
+  "name": "html-deploy-tool",
+  "version": "1.0.0",
+  "description": "一个简单而强大的HTML部署工具，专为Cloudflare Pages设计",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve",
+    "deploy": "echo \"请按照DEPLOY_GUIDE.md中的说明部署到Cloudflare Pages\""
+  },
+  "keywords": [
+    "html",
+    "deploy",
+    "cloudflare",
+    "pages"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

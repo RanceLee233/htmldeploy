@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML部署工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h1>HTML部署工具</h1>
+        </div>
+        <p class="subtitle">轻松部署HTML到Cloudflare Pages</p>
+    </header>
+
+    <main>
+        <section class="upload-section">
+            <h2>上传HTML代码</h2>
+            <div class="code-input-container">
+                <textarea id="html-code" placeholder="在此粘贴您的HTML代码..."></textarea>
+                <div class="input-controls">
+                    <input type="text" id="page-name" placeholder="网页名称（可选）">
+                    <button id="deploy-btn">部署到Cloudflare</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="history-section">
+            <div class="history-header">
+                <h2>部署历史</h2>
+                <div class="view-toggle">
+                    <button id="list-view-btn" class="active"><i class="fas fa-list"></i> 列表视图</button>
+                    <button id="grid-view-btn"><i class="fas fa-th"></i> 网格视图</button>
+                </div>
+            </div>
+            
+            <div id="history-container" class="list-view">
+                <!-- 历史记录将通过JavaScript动态添加 -->
+            </div>
+        </section>
+    </main>
+
+    <!-- 模态框 - 查看源代码 -->
+    <div id="source-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>HTML源代码</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="source-code"></textarea>
+                <div class="modal-controls">
+                    <button id="update-source-btn">更新代码</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框 - 重命名 -->
+    <div id="rename-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>重命名网页</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="new-name" placeholder="输入新名称">
+                <div class="modal-controls">
+                    <button id="confirm-rename-btn">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览iframe -->
+    <div id="preview-container" class="hidden">
+        <div class="preview-header">
+            <h3 id="preview-title">预览</h3>
+            <button id="close-preview-btn">&times;</button>
+        </div>
+        <iframe id="preview-frame"></iframe>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
