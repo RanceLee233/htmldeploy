@@ -59,47 +59,169 @@ function setupEventListeners() {
 }
 
 // 部署HTML
-function deployHtml() {
+async function deployHtml() {
     const htmlCode = htmlCodeInput.value.trim();
     if (!htmlCode) {
         alert('请输入HTML代码');
         return;
     }
     
-    // 生成唯一ID
-    const id = Date.now().toString();
-    const date = new Date();
+    // 显示加载状态
+    deployBtn.disabled = true;
+    deployBtn.textContent = '部署中...';
     
-    // 获取页面名称，如果未提供则使用默认名称
-    let pageName = pageNameInput.value.trim();
-    if (!pageName) {
-        pageName = `页面 ${date.toLocaleString()}`;
+    try {
+        // 获取页面名称，如果未提供则使用默认名称
+        let pageName = pageNameInput.value.trim();
+        if (!pageName) {
+            pageName = `页面 ${new Date().toLocaleString()}`;
+        }
+        
+        // 创建缩略图
+        const thumbnailUrl = generateThumbnail(htmlCode);
+        
+        // 调用Worker API部署HTML
+        let shareUrl = '';
+        let pageId = Date.now().toString();
+        
+        try {
+            // 尝试调用Worker API
+            const response = await fetch('/api/deploy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    html: htmlCode,
+                    name: pageName
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                shareUrl = result.url;
+                pageId = result.id;
+            } else {
+                // API调用失败但有响应，生成本地分享链接
+                const baseUrl = window.location.origin;
+                shareUrl = `${baseUrl}/p/${pageId}`;
+            }
+        } catch (error) {
+            console.error('Worker API调用失败:', error);
+            // 失败时使用本地模式，生成本地分享链接
+            const baseUrl = window.location.origin;
+            shareUrl = `${baseUrl}/p/${pageId}`;
+        }
+        
+        // 创建新页面对象
+        const newPage = {
+            id: pageId,
+            name: pageName,
+            html: htmlCode,
+            date: new Date().toISOString(),
+            thumbnail: thumbnailUrl,
+            shareUrl: shareUrl,
+            archived: false
+        };
+        
+        // 添加到部署历史
+        deployedPages.unshift(newPage);
+        savePages();
+        renderHistory();
+        
+        // 清空输入
+        htmlCodeInput.value = '';
+        pageNameInput.value = '';
+        
+        // 显示成功消息和分享链接
+        if (shareUrl) {
+            // 创建成功提示对话框
+            const successModal = document.createElement('div');
+            successModal.className = 'modal success-modal active';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'modal-header';
+            modalHeader.innerHTML = `<h3>部署成功</h3><button class="close-btn">&times;</button>`;
+            
+            const modalBody = document.createElement('div');
+            modalBody.className = 'modal-body';
+            
+            const successMessage = document.createElement('p');
+            successMessage.className = 'success-message';
+            successMessage.textContent = `${pageName} 已成功部署！`;
+            
+            const shareUrlContainer = document.createElement('div');
+            shareUrlContainer.className = 'deploy-share-container';
+            
+            const shareUrlInput = document.createElement('input');
+            shareUrlInput.type = 'text';
+            shareUrlInput.className = 'share-url-input';
+            shareUrlInput.value = shareUrl;
+            shareUrlInput.readOnly = true;
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-share-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(shareUrl)
+                    .then(() => {
+                        copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('复制失败:', err);
+                        fallbackCopy(shareUrl);
+                    });
+            });
+            
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'view-deploy-btn';
+            viewBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> 查看页面';
+            viewBtn.addEventListener('click', () => {
+                window.open(shareUrl, '_blank');
+            });
+            
+            shareUrlContainer.appendChild(shareUrlInput);
+            shareUrlContainer.appendChild(copyBtn);
+            
+            modalBody.appendChild(successMessage);
+            modalBody.appendChild(shareUrlContainer);
+            modalBody.appendChild(viewBtn);
+            
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            
+            successModal.appendChild(modalContent);
+            document.body.appendChild(successModal);
+            
+            // 关闭按钮事件
+            const closeBtn = successModal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(successModal);
+            });
+            
+            // 点击模态框外部关闭
+            successModal.addEventListener('click', (e) => {
+                if (e.target === successModal) {
+                    document.body.removeChild(successModal);
+                }
+            });
+        } else {
+            alert(`${pageName} 已成功部署！`);
+        }
+    } catch (error) {
+        console.error('部署失败:', error);
+        alert('部署失败: ' + error.message);
+    } finally {
+        // 恢复按钮状态
+        deployBtn.disabled = false;
+        deployBtn.textContent = '部署到Cloudflare';
     }
-    
-    // 创建缩略图
-    const thumbnailUrl = generateThumbnail(htmlCode);
-    
-    // 创建新页面对象
-    const newPage = {
-        id,
-        name: pageName,
-        html: htmlCode,
-        date: date.toISOString(),
-        thumbnail: thumbnailUrl,
-        archived: false
-    };
-    
-    // 添加到部署历史
-    deployedPages.unshift(newPage);
-    savePages();
-    renderHistory();
-    
-    // 清空输入
-    htmlCodeInput.value = '';
-    pageNameInput.value = '';
-    
-    // 显示成功消息
-    alert(`${pageName} 已成功部署！`);
 }
 
 // 生成缩略图 (使用Data URL)
@@ -165,8 +287,35 @@ function createHistoryItem(page) {
     date.className = 'item-date';
     date.textContent = new Date(page.date).toLocaleString();
     
+    // 如果有分享链接，显示分享URL
     details.appendChild(title);
     details.appendChild(date);
+    
+    if (page.shareUrl) {
+        const shareUrlContainer = document.createElement('div');
+        shareUrlContainer.className = 'item-share-url-container';
+        
+        const shareUrlLabel = document.createElement('span');
+        shareUrlLabel.className = 'share-url-label';
+        shareUrlLabel.textContent = '分享链接: ';
+        
+        const shareUrlDiv = document.createElement('span');
+        shareUrlDiv.className = 'item-share-url';
+        shareUrlDiv.textContent = page.shareUrl;
+        
+        const copyIcon = document.createElement('i');
+        copyIcon.className = 'fas fa-copy copy-icon';
+        copyIcon.title = '复制链接';
+        copyIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyShareLink(page);
+        });
+        
+        shareUrlContainer.appendChild(shareUrlLabel);
+        shareUrlContainer.appendChild(shareUrlDiv);
+        shareUrlContainer.appendChild(copyIcon);
+        details.appendChild(shareUrlContainer);
+    }
     
     // 创建操作按钮
     const actions = document.createElement('div');
@@ -184,6 +333,82 @@ function createHistoryItem(page) {
     // 导出PNG按钮
     const exportPngBtn = createButton('导出PNG', '', () => exportAsPng(page));
     
+    // 复制分享链接按钮 - 只有当页面有分享链接时才显示
+    let copyShareBtn;
+    if (page.shareUrl) {
+        copyShareBtn = createButton('复制分享链接', 'share-btn', () => copyShareLink(page));
+    }
+    
+    // 分享按钮 - 显示分享链接供用户复制
+    let shareBtn;
+    if (page.shareUrl) {
+        shareBtn = createButton('分享', 'share-btn', () => {
+            // 创建分享对话框
+            const shareModal = document.createElement('div');
+            shareModal.className = 'modal share-modal active';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'modal-header';
+            modalHeader.innerHTML = `<h3>分享链接</h3><button class="close-btn">&times;</button>`;
+            
+            const modalBody = document.createElement('div');
+            modalBody.className = 'modal-body';
+            
+            const shareUrlContainer = document.createElement('div');
+            shareUrlContainer.className = 'deploy-share-container';
+            
+            const shareUrlInput = document.createElement('input');
+            shareUrlInput.type = 'text';
+            shareUrlInput.className = 'share-url-input';
+            shareUrlInput.value = page.shareUrl;
+            shareUrlInput.readOnly = true;
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-share-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(page.shareUrl)
+                    .then(() => {
+                        showCopySuccess(page.shareUrl);
+                        copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('复制失败:', err);
+                        fallbackCopy(page.shareUrl);
+                    });
+            });
+            
+            shareUrlContainer.appendChild(shareUrlInput);
+            shareUrlContainer.appendChild(copyBtn);
+            modalBody.appendChild(shareUrlContainer);
+            
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            
+            shareModal.appendChild(modalContent);
+            document.body.appendChild(shareModal);
+            
+            // 关闭按钮事件
+            const closeBtn = shareModal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(shareModal);
+            });
+            
+            // 点击模态框外部关闭
+            shareModal.addEventListener('click', (e) => {
+                if (e.target === shareModal) {
+                    document.body.removeChild(shareModal);
+                }
+            });
+        });
+    }
+    
     // 归档/取消归档按钮
     const archiveBtn = createButton(
         page.archived ? '取消归档' : '归档', 
@@ -198,6 +423,12 @@ function createHistoryItem(page) {
     actions.appendChild(viewSourceBtn);
     actions.appendChild(renameBtn);
     actions.appendChild(exportPngBtn);
+    
+    // 添加分享按钮（如果有分享链接）
+    if (page.shareUrl) {
+        actions.appendChild(shareBtn);
+        actions.appendChild(copyShareBtn);
+    }
     actions.appendChild(archiveBtn);
     actions.appendChild(deleteBtn);
     
@@ -309,11 +540,67 @@ function exportAsPng(page) {
     iframe.style.height = '768px';
     document.body.appendChild(iframe);
     
+    // 添加加载指示器
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'copy-toast show';
+    loadingToast.textContent = '正在生成PNG图片...';
+    document.body.appendChild(loadingToast);
+    
     iframe.onload = function() {
         // 使用html2canvas库将iframe内容转换为canvas
-        // 注意：实际项目中需要引入html2canvas库
-        alert(`导出功能需要html2canvas库支持。\n在实际项目中，这里会将 ${page.name} 导出为PNG图片。`);
-        document.body.removeChild(iframe);
+        const iframeWindow = iframe.contentWindow;
+        const iframeDocument = iframe.contentDocument || iframeWindow.document;
+        
+        // 确保样式正确加载
+        const head = iframeDocument.head;
+        const styles = document.querySelectorAll('link[rel="stylesheet"]');
+        styles.forEach(style => {
+            const linkClone = style.cloneNode(true);
+            head.appendChild(linkClone);
+        });
+        
+        // 等待样式加载完成
+        setTimeout(() => {
+            html2canvas(iframeDocument.body, {
+                allowTaint: true,
+                useCORS: true,
+                scale: 2, // 提高图片质量
+                backgroundColor: '#ffffff' // 确保背景为白色
+            }).then(canvas => {
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.download = `${page.name || 'webpage'}.png`;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                
+                // 触发下载
+                link.click();
+                
+                // 清理
+                document.body.removeChild(link);
+                document.body.removeChild(iframe);
+                document.body.removeChild(loadingToast);
+                
+                // 显示成功消息
+                const successToast = document.createElement('div');
+                successToast.className = 'copy-toast show';
+                successToast.textContent = 'PNG图片已成功导出！';
+                document.body.appendChild(successToast);
+                
+                // 2秒后隐藏并移除提示
+                setTimeout(() => {
+                    successToast.classList.remove('show');
+                    setTimeout(() => {
+                        document.body.removeChild(successToast);
+                    }, 300);
+                }, 2000);
+            }).catch(error => {
+                console.error('导出PNG失败:', error);
+                alert('导出PNG失败，请查看控制台获取详细信息。');
+                document.body.removeChild(iframe);
+                document.body.removeChild(loadingToast);
+            });
+        }, 500); // 给样式加载一些时间
     };
     
     iframe.srcdoc = page.html;
@@ -361,6 +648,65 @@ function closeAllModals() {
     sourceModal.classList.remove('active');
     renameModal.classList.remove('active');
     currentPageId = null;
+}
+
+// 复制分享链接到剪贴板
+function copyShareLink(page) {
+    if (!page.shareUrl) {
+        alert('此页面没有分享链接');
+        return;
+    }
+    
+    // 使用现代Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(page.shareUrl)
+            .then(() => showCopySuccess(page.shareUrl))
+            .catch(err => {
+                console.error('复制失败:', err);
+                fallbackCopy(page.shareUrl);
+            });
+    } else {
+        fallbackCopy(page.shareUrl);
+    }
+}
+
+// 复制链接的后备方法
+function fallbackCopy(text) {
+    // 创建临时输入框
+    const tempInput = document.createElement('input');
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    
+    // 选择并复制
+    tempInput.select();
+    document.execCommand('copy');
+    
+    // 移除临时输入框
+    document.body.removeChild(tempInput);
+    
+    showCopySuccess(text);
+}
+
+// 显示复制成功的提示
+function showCopySuccess(url) {
+    // 创建一个临时提示元素
+    const toast = document.createElement('div');
+    toast.className = 'copy-toast';
+    toast.textContent = '分享链接已复制到剪贴板！';
+    document.body.appendChild(toast);
+    
+    // 显示提示
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // 2秒后隐藏并移除提示
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 2000);
 }
 
 // 添加Cloudflare部署功能（模拟）

@@ -1,0 +1,15 @@
+name = "html-deploy-tool"
+main = "worker.js"
+compatibility_date = "2025-04-10"
+
+# 静态资产配置
+[site]
+bucker = "."
+
+# KV命名空间配置
+# 在实际部署前，需要创建KV命名空间并替换下面的id
+# 创建命令: wrangler kv:namespace create HTML_PAGES
+[[kv_namespaces]]
+binding = "HTML_PAGES"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
